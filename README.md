@@ -25,7 +25,7 @@ Estas reglas están definidas en `lib/academic.php` y se pueden ajustar fácilme
 - Promoción directa: `0` materias desaprobadas
 - Intensificación: hasta `2` materias desaprobadas
 - Recursa: más de `2` materias desaprobadas
-- Asistencia: actualmente no se considera en el cálculo
+- Asistencia mínima por materia: `80%` (si no alcanza, la materia queda en intensificación)
 
 ## Ejecutar el proyecto
 
@@ -48,10 +48,24 @@ Abrir en navegador:
 http://localhost:8000/index.php
 ```
 
+La portada ahora funciona como presentacion del sistema y acceso a las secciones principales:
+
+- `index.php`: inicio y explicacion de como se aprueba
+- `estudiantes.php`: alta de estudiantes
+- `materias.php`: alta de materias
+- `notas.php`: carga de calificaciones
+- `analisis.php`: consulta de rendimiento academico
+
 ## Estructura
 
-- `index.php`: interfaz principal
+- `index.php`: portada del sistema
+- `estudiantes.php`: formulario de estudiantes
+- `materias.php`: formulario de materias
+- `notas.php`: formulario de calificaciones
+- `analisis.php`: pantalla de analisis
 - `api.php`: API de operaciones
+- `includes/header.php`: layout compartido superior
+- `includes/footer.php`: layout compartido inferior
 - `lib/mysql_storage.php`: conexión y persistencia MySQL
 - `lib/academic.php`: reglas y análisis académico
 - `assets/js/app.js`: lógica del frontend

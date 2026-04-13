@@ -5,15 +5,19 @@ const state = {
     subjects: [],
     reports: [],
     rules: null,
+    studentLookup: new Map(),
+    subjectLookup: new Map(),
 };
 
 const studentForm = document.getElementById('studentForm');
 const subjectForm = document.getElementById('subjectForm');
 const gradeForm = document.getElementById('gradeForm');
-const studentSelect = document.getElementById('studentSelect');
-const subjectSelect = document.getElementById('subjectSelect');
-const studentSearch = document.getElementById('studentSearch');
-const subjectSearch = document.getElementById('subjectSearch');
+const gradeStudentInput = document.getElementById('gradeStudentInput');
+const gradeSubjectInput = document.getElementById('gradeSubjectInput');
+const gradeStudentId = document.getElementById('gradeStudentId');
+const gradeSubjectId = document.getElementById('gradeSubjectId');
+const studentsList = document.getElementById('studentsList');
+const subjectsList = document.getElementById('subjectsList');
 const analysisStudentSearch = document.getElementById('analysisStudentSearch');
 const reportsContainer = document.getElementById('reportsContainer');
 const rulesSummary = document.getElementById('rulesSummary');
@@ -38,6 +42,10 @@ async function apiRequest(action, options = {}) {
 }
 
 function showToast(message) {
+    if (!toast) {
+        return;
+    }
+
     toast.textContent = message;
     toast.classList.add('show');
 
@@ -62,8 +70,33 @@ function statusBadge(status) {
     return '<span class="badge warn">Sin definir</span>';
 }
 
+function studentOptionLabel(student) {
+    return `${student.name} (${student.course}${student.dni ? ` - DNI ${student.dni}` : ''})`;
+}
+
+function subjectOptionLabel(subject) {
+    return `${subject.name} (${subject.year}${subject.abbreviation ? ` - ${subject.abbreviation}` : ''})`;
+}
+
+function syncHiddenIds() {
+    if (!gradeStudentInput || !gradeSubjectInput || !gradeStudentId || !gradeSubjectId) {
+        return;
+    }
+
+    const selectedStudentId = state.studentLookup.get(gradeStudentInput.value.trim());
+    gradeStudentId.value = selectedStudentId ? String(selectedStudentId) : '';
+
+    const selectedSubjectId = state.subjectLookup.get(gradeSubjectInput.value.trim());
+    gradeSubjectId.value = selectedSubjectId ? String(selectedSubjectId) : '';
+}
+
 function renderSelects() {
-    const studentFilter = (studentSearch.value || '').trim().toLowerCase();
+    if (!gradeStudentInput || !gradeSubjectInput || !studentsList || !subjectsList) {
+        return;
+    }
+
+    state.studentLookup = new Map();
+    const studentFilter = (gradeStudentInput.value || '').trim().toLowerCase();
     const visibleStudents = state.students.filter((s) => {
         if (studentFilter === '') {
             return true;
@@ -73,11 +106,16 @@ function renderSelects() {
         return searchable.includes(studentFilter);
     });
 
-    studentSelect.innerHTML = visibleStudents.length
-        ? visibleStudents.map((s) => `<option value="${s.id}">${s.name} (${s.course})</option>`).join('')
-        : '<option value="">Sin estudiantes</option>';
+    studentsList.innerHTML = visibleStudents
+        .map((s) => {
+            const label = studentOptionLabel(s);
+            state.studentLookup.set(label, s.id);
+            return `<option value="${label}"></option>`;
+        })
+        .join('');
 
-    const subjectFilter = (subjectSearch.value || '').trim().toLowerCase();
+    state.subjectLookup = new Map();
+    const subjectFilter = (gradeSubjectInput.value || '').trim().toLowerCase();
     const visibleSubjects = state.subjects.filter((s) => {
         if (subjectFilter === '') {
             return true;
@@ -87,26 +125,44 @@ function renderSelects() {
         return searchable.includes(subjectFilter);
     });
 
-    subjectSelect.innerHTML = visibleSubjects.length
-        ? visibleSubjects.map((s) => `<option value="${s.id}">${s.name} (${s.year})</option>`).join('')
-        : '<option value="">Sin materias</option>';
+    subjectsList.innerHTML = visibleSubjects
+        .map((s) => {
+            const label = subjectOptionLabel(s);
+            state.subjectLookup.set(label, s.id);
+            return `<option value="${label}"></option>`;
+        })
+        .join('');
+
+    syncHiddenIds();
 }
 
 function renderRules() {
+    if (!rulesSummary) {
+        return;
+    }
+
     if (!state.rules) {
         rulesSummary.textContent = 'Sin reglas definidas.';
         return;
     }
 
-    rulesSummary.innerHTML = `
-        Nota mínima para aprobar: <strong>${state.rules.passing_grade}</strong>.<br>
-        Promoción directa: <strong>${state.rules.max_failed_for_promotion}</strong> materias desaprobadas.<br>
-        Intensificación: hasta <strong>${state.rules.max_failed_for_intensification}</strong> materias desaprobadas.<br>
-        Asistencia considerada: <strong>${state.rules.attendance_considered ? 'Sí' : 'No'}</strong>.
-    `;
+    const stats = [
+        { label: 'Nota mínima', value: state.rules.passing_grade },
+        { label: 'Promoción directa', value: `hasta ${state.rules.max_failed_for_promotion} desap.` },
+        { label: 'Intensificación', value: `hasta ${state.rules.max_failed_for_intensification} desap.` },
+        { label: 'Asistencia mínima', value: `${state.rules.min_attendance_percent}%` },
+    ];
+
+    rulesSummary.innerHTML = stats
+        .map((s) => `<div class="rules-stat"><span class="rules-stat__label">${s.label}</span><strong class="rules-stat__value">${s.value}</strong></div>`)
+        .join('');
 }
 
 function renderReports() {
+    if (!reportsContainer || !analysisStudentSearch) {
+        return;
+    }
+
     if (!state.reports.length) {
         reportsContainer.innerHTML = '<p>No hay análisis disponibles. Cargá estudiantes, materias y notas.</p>';
         return;
@@ -136,7 +192,7 @@ function renderReports() {
                     .map((item) => `
                         <div class="subject-line">
                             <span>${item.subject_name}</span>
-                            <strong>${item.average.toFixed(2)} (${item.approved ? 'Aprobada' : 'Desaprobada'})</strong>
+                            <strong>${item.average.toFixed(2)} | Asistencia ${item.attendance.toFixed(2)}% (${item.approved ? 'Aprobada' : 'Intensificar'})</strong>
                         </div>
                     `)
                     .join('')
@@ -169,119 +225,154 @@ async function refreshDashboard() {
     renderReports();
 }
 
-studentForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+if (studentForm) {
+    studentForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
 
-    const formData = new FormData(studentForm);
-    const payload = {
-        dni: formData.get('dni'),
-        first_name: formData.get('first_name'),
-        last_name: formData.get('last_name'),
-        name: formData.get('name'),
-        course: formData.get('course'),
-        birth_date: formData.get('birth_date'),
-        sex: formData.get('sex'),
-        address: formData.get('address'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
-    };
+        const formData = new FormData(studentForm);
+        const payload = {
+            dni: formData.get('dni'),
+            first_name: formData.get('first_name'),
+            last_name: formData.get('last_name'),
+            name: formData.get('name'),
+            course: formData.get('course'),
+            birth_date: formData.get('birth_date'),
+            sex: formData.get('sex'),
+            address: formData.get('address'),
+            email: formData.get('email'),
+            phone: formData.get('phone'),
+        };
 
-    try {
-        await apiRequest('add_student', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        studentForm.reset();
-        showToast('Estudiante registrado');
-        await refreshDashboard();
-    } catch (error) {
-        showToast(error.message);
-    }
-});
+        try {
+            await apiRequest('add_student', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            studentForm.reset();
+            showToast('Estudiante registrado');
+            await refreshDashboard();
+        } catch (error) {
+            showToast(error.message);
+        }
+    });
+}
 
-subjectForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+if (subjectForm) {
+    subjectForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
 
-    const formData = new FormData(subjectForm);
-    const payload = {
-        name: formData.get('name'),
-        year: formData.get('year'),
-        abbreviation: formData.get('abbreviation'),
-        summary: formData.get('summary'),
-        department: formData.get('department'),
-        teacher: formData.get('teacher'),
-        status: formData.get('status'),
-    };
+        const formData = new FormData(subjectForm);
+        const payload = {
+            name: formData.get('name'),
+            year: formData.get('year'),
+            abbreviation: formData.get('abbreviation'),
+            summary: formData.get('summary'),
+            department: formData.get('department'),
+            teacher: formData.get('teacher'),
+            status: formData.get('status'),
+        };
 
-    try {
-        await apiRequest('add_subject', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        subjectForm.reset();
-        showToast('Materia registrada');
-        await refreshDashboard();
-    } catch (error) {
-        showToast(error.message);
-    }
-});
+        try {
+            await apiRequest('add_subject', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            subjectForm.reset();
+            showToast('Materia registrada');
+            await refreshDashboard();
+        } catch (error) {
+            showToast(error.message);
+        }
+    });
+}
 
-gradeForm.addEventListener('submit', async (event) => {
-    event.preventDefault();
+if (gradeForm) {
+    gradeForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
 
-    const formData = new FormData(gradeForm);
-    const payload = {
-        student_id: Number(formData.get('student_id')),
-        subject_id: Number(formData.get('subject_id')),
-        term: formData.get('term'),
-        score: Number(formData.get('score')),
-        date: formData.get('date'),
-    };
+        const formData = new FormData(gradeForm);
+        const studentId = Number(formData.get('student_id'));
+        const subjectId = Number(formData.get('subject_id'));
 
-    try {
-        await apiRequest('add_grade', {
-            method: 'POST',
-            body: JSON.stringify(payload),
-        });
-        gradeForm.reset();
-        showToast('Calificación registrada');
-        await refreshDashboard();
-    } catch (error) {
-        showToast(error.message);
-    }
-});
+        if (!studentId || !subjectId) {
+            showToast('Selecciona estudiante y materia desde la lista');
+            return;
+        }
 
-resetBtn.addEventListener('click', async () => {
-    const confirmReset = window.confirm('Esto eliminará todos los datos cargados. ¿Deseás continuar?');
+        const payload = {
+            student_id: studentId,
+            subject_id: subjectId,
+            term: formData.get('term'),
+            score: Number(formData.get('score')),
+            attendance: Number(formData.get('attendance')),
+            date: formData.get('date'),
+        };
 
-    if (!confirmReset) {
-        return;
-    }
+        try {
+            await apiRequest('add_grade', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+            });
+            gradeForm.reset();
+            if (gradeStudentId) {
+                gradeStudentId.value = '';
+            }
+            if (gradeSubjectId) {
+                gradeSubjectId.value = '';
+            }
+            showToast('Calificacion registrada');
+            await refreshDashboard();
+        } catch (error) {
+            showToast(error.message);
+        }
+    });
+}
 
-    try {
-        await apiRequest('reset_demo', {
-            method: 'POST',
-            body: JSON.stringify({}),
-        });
-        showToast('Datos reiniciados');
-        await refreshDashboard();
-    } catch (error) {
-        showToast(error.message);
-    }
-});
+if (resetBtn) {
+    resetBtn.addEventListener('click', async () => {
+        const confirmReset = window.confirm('Esto eliminara todos los datos cargados. Deseas continuar?');
 
-studentSearch.addEventListener('input', () => {
-    renderSelects();
-});
+        if (!confirmReset) {
+            return;
+        }
 
-subjectSearch.addEventListener('input', () => {
-    renderSelects();
-});
+        try {
+            await apiRequest('reset_demo', {
+                method: 'POST',
+                body: JSON.stringify({}),
+            });
+            showToast('Datos reiniciados');
+            await refreshDashboard();
+        } catch (error) {
+            showToast(error.message);
+        }
+    });
+}
 
-analysisStudentSearch.addEventListener('input', () => {
-    renderReports();
-});
+if (gradeStudentInput) {
+    gradeStudentInput.addEventListener('input', () => {
+        renderSelects();
+    });
+}
+
+if (gradeSubjectInput) {
+    gradeSubjectInput.addEventListener('input', () => {
+        renderSelects();
+    });
+}
+
+if (analysisStudentSearch) {
+    analysisStudentSearch.addEventListener('input', () => {
+        renderReports();
+    });
+}
 
 refreshDashboard().catch((error) => {
-    reportsContainer.innerHTML = `<p>Error al cargar datos: ${error.message}</p>`;
+    if (reportsContainer) {
+        reportsContainer.innerHTML = `<p>Error al cargar datos: ${error.message}</p>`;
+    }
+
+    if (rulesSummary) {
+        rulesSummary.innerHTML = `<p>Error al cargar criterios: ${error.message}</p>`;
+    }
 });

@@ -102,6 +102,7 @@ if ($action === 'add_grade' && $method === 'POST') {
     $subjectId = (int)($payload['subject_id'] ?? 0);
     $term = normalizeText($payload['term'] ?? '');
     $score = (float)($payload['score'] ?? -1);
+    $attendance = (float)($payload['attendance'] ?? -1);
     $gradeDate = normalizeText($payload['date'] ?? '');
 
     $studentExists = dbStudentExists($pdo, $studentId);
@@ -123,11 +124,15 @@ if ($action === 'add_grade' && $method === 'POST') {
         respond(['ok' => false, 'error' => 'La nota debe estar entre 1 y 10.'], 422);
     }
 
+    if ($attendance < 0 || $attendance > 100) {
+        respond(['ok' => false, 'error' => 'La asistencia debe estar entre 0 y 100.'], 422);
+    }
+
     if ($gradeDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $gradeDate)) {
         respond(['ok' => false, 'error' => 'Fecha inválida. Usá formato YYYY-MM-DD.'], 422);
     }
 
-    $newGrade = dbAddGrade($pdo, $studentId, $subjectId, $term, $score, $gradeDate === '' ? null : $gradeDate);
+    $newGrade = dbAddGrade($pdo, $studentId, $subjectId, $term, $score, $attendance, $gradeDate === '' ? null : $gradeDate);
 
     respond(['ok' => true, 'data' => $newGrade], 201);
 }

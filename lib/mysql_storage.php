@@ -70,6 +70,7 @@ function ensurePromediaSchema(PDO $pdo): void
             subject_id INT UNSIGNED NOT NULL,
             term_label VARCHAR(40) NOT NULL,
             score DECIMAL(4,2) NOT NULL,
+            attendance_percent DECIMAL(5,2) NOT NULL DEFAULT 100,
             grade_date DATE NOT NULL,
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
@@ -136,6 +137,10 @@ function ensurePromediaSchema(PDO $pdo): void
 
     if (!dbColumnExists($pdo, 'promedia_subjects', 'status')) {
         $pdo->exec('ALTER TABLE promedia_subjects ADD COLUMN status VARCHAR(20) NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_grades', 'attendance_percent')) {
+        $pdo->exec('ALTER TABLE promedia_grades ADD COLUMN attendance_percent DECIMAL(5,2) NOT NULL DEFAULT 100');
     }
 
     if (!dbIndexExists($pdo, 'promedia_students', 'ux_promedia_students_legacy_dni')) {
@@ -224,6 +229,11 @@ function dbGradeTermColumn(PDO $pdo): string
 function dbGradeDateColumn(PDO $pdo): string
 {
     return dbColumnExists($pdo, 'promedia_grades', 'grade_date') ? 'grade_date' : 'date';
+}
+
+function dbGradeAttendanceColumn(PDO $pdo): string
+{
+    return dbColumnExists($pdo, 'promedia_grades', 'attendance_percent') ? 'attendance_percent' : 'attendance';
 }
 
 function dbSyncLegacyData(PDO $pdo): array
@@ -345,9 +355,10 @@ function dbGetGrades(PDO $pdo): array
 {
     $termColumn = dbGradeTermColumn($pdo);
     $dateColumn = dbGradeDateColumn($pdo);
+    $attendanceColumn = dbGradeAttendanceColumn($pdo);
 
     $stmt = $pdo->query(
-        "SELECT id, student_id, subject_id, {$termColumn} AS term, score, {$dateColumn} AS date
+        "SELECT id, student_id, subject_id, {$termColumn} AS term, score, {$attendanceColumn} AS attendance, {$dateColumn} AS date
          FROM promedia_grades
          ORDER BY id ASC"
     );
@@ -355,6 +366,7 @@ function dbGetGrades(PDO $pdo): array
     $grades = $stmt->fetchAll();
     foreach ($grades as &$grade) {
         $grade['score'] = (float)$grade['score'];
+        $grade['attendance'] = isset($grade['attendance']) ? (float)$grade['attendance'] : 100.0;
     }
     unset($grade);
 
@@ -366,6 +378,7 @@ function dbGetGrades(PDO $pdo): array
                 psub.id AS subject_id,
                 CONCAT('Trimestre ', nt.trimestre) AS term,
                 CAST(nt.nota AS DECIMAL(4,2)) AS score,
+                     100.00 AS attendance,
                 CURRENT_DATE() AS date
              FROM notastrimestrales nt
              INNER JOIN nota n ON n.id = nt.id_nota
@@ -379,6 +392,7 @@ function dbGetGrades(PDO $pdo): array
         $legacyGrades = $legacyStmt->fetchAll();
         foreach ($legacyGrades as &$legacyGrade) {
             $legacyGrade['score'] = (float)$legacyGrade['score'];
+            $legacyGrade['attendance'] = (float)$legacyGrade['attendance'];
         }
         unset($legacyGrade);
 
@@ -503,22 +517,25 @@ function dbSubjectExists(PDO $pdo, int $subjectId): bool
     return (bool)$stmt->fetchColumn();
 }
 
-function dbAddGrade(PDO $pdo, int $studentId, int $subjectId, string $term, float $score, ?string $gradeDate = null): array
+function dbAddGrade(PDO $pdo, int $studentId, int $subjectId, string $term, float $score, float $attendance, ?string $gradeDate = null): array
 {
     $scoreRounded = round($score, 2);
+    $attendanceRounded = round($attendance, 2);
     $date = $gradeDate && $gradeDate !== '' ? $gradeDate : date('Y-m-d');
     $termColumn = dbGradeTermColumn($pdo);
     $dateColumn = dbGradeDateColumn($pdo);
+    $attendanceColumn = dbGradeAttendanceColumn($pdo);
 
     $stmt = $pdo->prepare(
-        "INSERT INTO promedia_grades (student_id, subject_id, {$termColumn}, score, {$dateColumn})
-         VALUES (:student_id, :subject_id, :term_label, :score, :grade_date)"
+        "INSERT INTO promedia_grades (student_id, subject_id, {$termColumn}, score, {$attendanceColumn}, {$dateColumn})
+         VALUES (:student_id, :subject_id, :term_label, :score, :attendance, :grade_date)"
     );
     $stmt->execute([
         ':student_id' => $studentId,
         ':subject_id' => $subjectId,
         ':term_label' => $term,
         ':score' => $scoreRounded,
+        ':attendance' => $attendanceRounded,
         ':grade_date' => $date,
     ]);
 
@@ -528,6 +545,7 @@ function dbAddGrade(PDO $pdo, int $studentId, int $subjectId, string $term, floa
         'subject_id' => $subjectId,
         'term' => $term,
         'score' => $scoreRounded,
+        'attendance' => $attendanceRounded,
         'date' => $date,
     ];
 }
