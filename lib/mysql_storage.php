@@ -64,6 +64,37 @@ function ensurePromediaSchema(PDO $pdo): void
     );
 
     $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS promedia_teachers (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            dni INT UNSIGNED NOT NULL,
+            role TINYINT(1) NOT NULL DEFAULT 0,
+            email VARCHAR(160) NULL,
+            approval_status VARCHAR(20) NOT NULL DEFAULT \'pending\',
+            approved_at TIMESTAMP NULL DEFAULT NULL,
+            approved_by_superior_id INT UNSIGNED NULL,
+            first_name VARCHAR(80) NOT NULL,
+            last_name VARCHAR(80) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY ux_promedia_teachers_dni (dni)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+    );
+
+    $pdo->exec(
+        'CREATE TABLE IF NOT EXISTS promedia_superiors (
+            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+            dni INT UNSIGNED NOT NULL,
+            name VARCHAR(120) NOT NULL,
+            email VARCHAR(160) NOT NULL,
+            password_hash VARCHAR(255) NOT NULL,
+            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY (id),
+            UNIQUE KEY ux_promedia_superiors_dni (dni)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4'
+    );
+
+    $pdo->exec(
         'CREATE TABLE IF NOT EXISTS promedia_grades (
             id INT UNSIGNED NOT NULL AUTO_INCREMENT,
             student_id INT UNSIGNED NOT NULL,
@@ -115,6 +146,10 @@ function ensurePromediaSchema(PDO $pdo): void
         $pdo->exec('ALTER TABLE promedia_students ADD COLUMN phone VARCHAR(40) NULL');
     }
 
+    if (!dbColumnExists($pdo, 'promedia_students', 'student_password_hash')) {
+        $pdo->exec('ALTER TABLE promedia_students ADD COLUMN student_password_hash VARCHAR(255) NULL');
+    }
+
     if (!dbColumnExists($pdo, 'promedia_subjects', 'legacy_subject_id')) {
         $pdo->exec('ALTER TABLE promedia_subjects ADD COLUMN legacy_subject_id INT NULL');
     }
@@ -137,6 +172,61 @@ function ensurePromediaSchema(PDO $pdo): void
 
     if (!dbColumnExists($pdo, 'promedia_subjects', 'status')) {
         $pdo->exec('ALTER TABLE promedia_subjects ADD COLUMN status VARCHAR(20) NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_teachers', 'role')) {
+        $pdo->exec('ALTER TABLE promedia_teachers ADD COLUMN role TINYINT(1) NOT NULL DEFAULT 0 AFTER dni');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_teachers', 'email')) {
+        $pdo->exec('ALTER TABLE promedia_teachers ADD COLUMN email VARCHAR(160) NULL AFTER role');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_teachers', 'approval_status')) {
+        $pdo->exec('ALTER TABLE promedia_teachers ADD COLUMN approval_status VARCHAR(20) NOT NULL DEFAULT \'pending\' AFTER email');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_teachers', 'approved_at')) {
+        $pdo->exec('ALTER TABLE promedia_teachers ADD COLUMN approved_at TIMESTAMP NULL DEFAULT NULL AFTER approval_status');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_teachers', 'approved_by_superior_id')) {
+        $pdo->exec('ALTER TABLE promedia_teachers ADD COLUMN approved_by_superior_id INT UNSIGNED NULL AFTER approved_at');
+    }
+
+    if (dbColumnExists($pdo, 'promedia_teachers', 'role')) {
+        $teacherRoleType = dbColumnDataType($pdo, 'promedia_teachers', 'role');
+        if ($teacherRoleType !== 'tinyint') {
+            $pdo->exec(
+                "UPDATE promedia_teachers
+                 SET role = CASE
+                     WHEN LOWER(TRIM(COALESCE(role, ''))) IN ('1', 'profesor', 'teacher', 'true') THEN '1'
+                     ELSE '0'
+                 END"
+            );
+            $pdo->exec('ALTER TABLE promedia_teachers MODIFY role TINYINT(1) NOT NULL DEFAULT 0');
+        }
+    }
+
+    $superiorsCount = (int)$pdo->query('SELECT COUNT(*) FROM promedia_superiors')->fetchColumn();
+    if ($superiorsCount === 0) {
+        $defaultDni = getenv('SUPERIOR_DNI') ?: '10000000';
+        $defaultName = getenv('SUPERIOR_NAME') ?: 'Superior General';
+        $defaultEmail = getenv('SUPERIOR_EMAIL') ?: 'superior@promedia.local';
+        $defaultPass = getenv('SUPERIOR_PASS') ?: 'admin1234';
+
+        if (ctype_digit($defaultDni)) {
+            $stmt = $pdo->prepare(
+                'INSERT INTO promedia_superiors (dni, name, email, password_hash)
+                 VALUES (:dni, :name, :email, :password_hash)'
+            );
+            $stmt->execute([
+                ':dni' => (int)$defaultDni,
+                ':name' => $defaultName,
+                ':email' => $defaultEmail,
+                ':password_hash' => password_hash($defaultPass, PASSWORD_DEFAULT),
+            ]);
+        }
     }
 
     if (!dbColumnExists($pdo, 'promedia_grades', 'attendance_percent')) {
@@ -170,6 +260,26 @@ function dbColumnExists(PDO $pdo, string $tableName, string $columnName): bool
     ]);
 
     return (bool)$stmt->fetchColumn();
+}
+
+function dbColumnDataType(PDO $pdo, string $tableName, string $columnName): ?string
+{
+    $stmt = $pdo->prepare(
+        'SELECT DATA_TYPE
+         FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name
+         LIMIT 1'
+    );
+    $stmt->execute([
+        ':table_name' => $tableName,
+        ':column_name' => $columnName,
+    ]);
+
+    $type = $stmt->fetchColumn();
+
+    return is_string($type) ? strtolower($type) : null;
 }
 
 function dbTableExists(PDO $pdo, string $tableName): bool
@@ -412,6 +522,7 @@ function dbAddStudent(PDO $pdo, array $payload): array
     $address = trim((string)($payload['address'] ?? ''));
     $email = trim((string)($payload['email'] ?? ''));
     $phone = trim((string)($payload['phone'] ?? ''));
+    $studentPassword = (string)($payload['student_password'] ?? '');
     $course = trim((string)($payload['course'] ?? ''));
     $name = trim((string)($payload['name'] ?? ''));
 
@@ -429,12 +540,14 @@ function dbAddStudent(PDO $pdo, array $payload): array
     $addressValue = $address !== '' ? $address : null;
     $emailValue = $email !== '' ? $email : null;
     $phoneValue = $phone !== '' ? $phone : null;
+    $passwordToUse = $studentPassword !== '' ? $studentPassword : '1234';
+    $studentPasswordHash = password_hash($passwordToUse, PASSWORD_DEFAULT);
 
     $stmt = $pdo->prepare(
         'INSERT INTO promedia_students
-            (name, course, legacy_dni, first_name, last_name, birth_date, sex, address, email, phone)
+            (name, course, legacy_dni, first_name, last_name, birth_date, sex, address, email, phone, student_password_hash)
          VALUES
-            (:name, :course, :legacy_dni, :first_name, :last_name, :birth_date, :sex, :address, :email, :phone)'
+            (:name, :course, :legacy_dni, :first_name, :last_name, :birth_date, :sex, :address, :email, :phone, :student_password_hash)'
     );
     $stmt->execute([
         ':name' => $name,
@@ -447,6 +560,7 @@ function dbAddStudent(PDO $pdo, array $payload): array
         ':address' => $addressValue,
         ':email' => $emailValue,
         ':phone' => $phoneValue,
+        ':student_password_hash' => $studentPasswordHash,
     ]);
 
     return [
@@ -507,6 +621,308 @@ function dbStudentExists(PDO $pdo, int $studentId): bool
     $stmt->execute([':id' => $studentId]);
 
     return (bool)$stmt->fetchColumn();
+}
+
+function dbFindStudentByDni(PDO $pdo, string $dni): ?array
+{
+    if ($dni === '' || !ctype_digit($dni)) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT
+            id,
+            name,
+            course,
+            legacy_dni AS dni
+         FROM promedia_students
+         WHERE legacy_dni = :dni
+         LIMIT 1'
+    );
+    $stmt->execute([':dni' => (int)$dni]);
+
+    $student = $stmt->fetch();
+
+    return is_array($student) ? $student : null;
+}
+
+function dbFindTeacherByDni(PDO $pdo, string $dni): ?array
+{
+    if ($dni === '' || !ctype_digit($dni)) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, dni, role, email, approval_status, approved_at, approved_by_superior_id, first_name, last_name, password_hash
+         FROM promedia_teachers
+         WHERE dni = :dni
+         LIMIT 1'
+    );
+    $stmt->execute([':dni' => (int)$dni]);
+
+    $teacher = $stmt->fetch();
+
+    return is_array($teacher) ? $teacher : null;
+}
+
+function dbRegisterTeacher(PDO $pdo, string $dni, string $email, string $firstName, string $lastName, string $password): array
+{
+    $stmt = $pdo->prepare(
+        'INSERT INTO promedia_teachers (dni, role, email, approval_status, approved_at, approved_by_superior_id, first_name, last_name, password_hash)
+            VALUES (:dni, 0, :email, \'pending\', NULL, NULL, :first_name, :last_name, :password_hash)
+         ON DUPLICATE KEY UPDATE
+            email = VALUES(email),
+                approval_status = \'pending\',
+            approved_at = NULL,
+            approved_by_superior_id = NULL,
+            first_name = VALUES(first_name),
+            last_name = VALUES(last_name),
+            password_hash = VALUES(password_hash)'
+    );
+    $stmt->execute([
+        ':dni' => (int)$dni,
+        ':email' => $email,
+        ':first_name' => $firstName,
+        ':last_name' => $lastName,
+        ':password_hash' => password_hash($password, PASSWORD_DEFAULT),
+    ]);
+
+    $teacher = dbFindTeacherByDni($pdo, $dni);
+
+    return is_array($teacher) ? $teacher : [];
+}
+
+function dbFindSuperiorByDni(PDO $pdo, string $dni): ?array
+{
+    if ($dni === '' || !ctype_digit($dni)) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, dni, name, email, password_hash
+         FROM promedia_superiors
+         WHERE dni = :dni
+         LIMIT 1'
+    );
+    $stmt->execute([':dni' => (int)$dni]);
+
+    $superior = $stmt->fetch();
+
+    return is_array($superior) ? $superior : null;
+}
+
+function dbValidateSuperiorPassword(PDO $pdo, int $superiorId, string $password): bool
+{
+    if ($superiorId <= 0 || $password === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT password_hash
+         FROM promedia_superiors
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $superiorId]);
+    $hash = $stmt->fetchColumn();
+
+    return is_string($hash) && $hash !== '' && password_verify($password, $hash);
+}
+
+function dbGetTeacherAccounts(PDO $pdo): array
+{
+    $stmt = $pdo->query(
+        'SELECT
+            t.id,
+            t.dni,
+            t.role,
+            t.email,
+            t.approval_status,
+            t.approved_at,
+            t.approved_by_superior_id,
+            t.first_name,
+            t.last_name,
+            t.created_at,
+            s.name AS approved_by_name
+         FROM promedia_teachers t
+         LEFT JOIN promedia_superiors s ON s.id = t.approved_by_superior_id
+         ORDER BY
+            CASE t.approval_status
+                WHEN \'pending\' THEN 0
+                WHEN \'rejected\' THEN 1
+                ELSE 2
+            END,
+            t.created_at DESC'
+    );
+
+    return $stmt->fetchAll();
+}
+
+function dbSetTeacherApproval(PDO $pdo, int $teacherId, string $status, int $role, int $superiorId): bool
+{
+    if ($teacherId <= 0 || $superiorId <= 0) {
+        return false;
+    }
+
+    if (!in_array($status, ['approved', 'rejected'], true)) {
+        return false;
+    }
+
+    if (!in_array($role, [0, 1], true)) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE promedia_teachers
+         SET approval_status = :approval_status,
+             role = :role,
+             approved_at = CURRENT_TIMESTAMP,
+             approved_by_superior_id = :approved_by
+         WHERE id = :id'
+    );
+    $stmt->execute([
+        ':approval_status' => $status,
+        ':role' => $role,
+        ':approved_by' => $superiorId,
+        ':id' => $teacherId,
+    ]);
+
+    return $stmt->rowCount() > 0;
+}
+
+function dbUpdateApprovedTeacherRole(PDO $pdo, int $teacherId, int $role, int $superiorId): bool
+{
+    if ($teacherId <= 0 || $superiorId <= 0) {
+        return false;
+    }
+
+    if (!in_array($role, [0, 1], true)) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE promedia_teachers
+         SET role = :role,
+             approved_by_superior_id = :approved_by
+         WHERE id = :id
+           AND approval_status = \'approved\''
+    );
+    $stmt->execute([
+        ':role' => $role,
+        ':approved_by' => $superiorId,
+        ':id' => $teacherId,
+    ]);
+
+    return $stmt->rowCount() > 0;
+}
+
+function dbFindTeacherById(PDO $pdo, int $teacherId): ?array
+{
+    if ($teacherId <= 0) {
+        return null;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, dni, role, email, approval_status, first_name, last_name
+         FROM promedia_teachers
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $teacherId]);
+
+    $teacher = $stmt->fetch();
+
+    return is_array($teacher) ? $teacher : null;
+}
+
+function dbValidateTeacherPassword(PDO $pdo, int $teacherId, string $password): bool
+{
+    if ($teacherId <= 0 || $password === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT password_hash
+         FROM promedia_teachers
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $teacherId]);
+    $hash = $stmt->fetchColumn();
+
+    return is_string($hash) && $hash !== '' && password_verify($password, $hash);
+}
+
+function dbSetStudentPassword(PDO $pdo, int $studentId, string $plainPassword): bool
+{
+    if ($studentId <= 0 || $plainPassword === '') {
+        return false;
+    }
+
+    $hash = password_hash($plainPassword, PASSWORD_DEFAULT);
+
+    $stmt = $pdo->prepare(
+        'UPDATE promedia_students SET student_password_hash = :hash WHERE id = :id'
+    );
+    $stmt->execute([':hash' => $hash, ':id' => $studentId]);
+
+    return $stmt->rowCount() > 0;
+}
+
+function dbValidateStudentPassword(PDO $pdo, int $studentId, string $password): bool
+{
+    if ($studentId <= 0 || $password === '') {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'SELECT id, legacy_dni AS dni, student_password_hash
+         FROM promedia_students
+         WHERE id = :id
+         LIMIT 1'
+    );
+    $stmt->execute([':id' => $studentId]);
+    $student = $stmt->fetch();
+
+    if (!is_array($student)) {
+        return false;
+    }
+
+    $hash = (string)($student['student_password_hash'] ?? '');
+    if ($hash !== '') {
+        return password_verify($password, $hash);
+    }
+
+    if (!dbTableExists($pdo, 'alumnos')) {
+        return false;
+    }
+
+    $dni = (int)($student['dni'] ?? 0);
+    if ($dni <= 0) {
+        return false;
+    }
+
+    $legacyStmt = $pdo->prepare('SELECT clave FROM alumnos WHERE dni = :dni LIMIT 1');
+    $legacyStmt->execute([':dni' => $dni]);
+    $legacyPassword = $legacyStmt->fetchColumn();
+
+    if (!is_string($legacyPassword) || $legacyPassword === '') {
+        return false;
+    }
+
+    if (!hash_equals($legacyPassword, $password)) {
+        return false;
+    }
+
+    // Upgrade legacy plain password to a local hash after first successful login.
+    $upgradeHash = password_hash($password, PASSWORD_DEFAULT);
+    $upgradeStmt = $pdo->prepare('UPDATE promedia_students SET student_password_hash = :hash WHERE id = :id');
+    $upgradeStmt->execute([
+        ':hash' => $upgradeHash,
+        ':id' => (int)$student['id'],
+    ]);
+
+    return true;
 }
 
 function dbSubjectExists(PDO $pdo, int $subjectId): bool

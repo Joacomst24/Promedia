@@ -6,6 +6,9 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/lib/mysql_storage.php';
 require_once __DIR__ . '/lib/academic.php';
+require_once __DIR__ . '/includes/auth.php';
+
+appSessionStart();
 
 function respond(array $payload, int $statusCode = 200): void
 {
@@ -32,8 +35,31 @@ function normalizeText(mixed $value): string
     return trim((string)$value);
 }
 
+function requireApiLogin(): array
+{
+    $user = authUser();
+
+    if ($user === null) {
+        respond(['ok' => false, 'error' => 'Sesión requerida.'], 401);
+    }
+
+    if ((string)($user['role'] ?? '') === 'superior') {
+        respond(['ok' => false, 'error' => 'El rol superior no usa esta API.'], 403);
+    }
+
+    return $user;
+}
+
+function requireApiProfessor(): void
+{
+    if (!authHasRole('profesor')) {
+        respond(['ok' => false, 'error' => 'Acceso solo para profesores.'], 403);
+    }
+}
+
 $action = $_GET['action'] ?? 'dashboard';
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$authUser = requireApiLogin();
 
 try {
     $pdo = escuelaDbConnection();
@@ -50,10 +76,31 @@ $subjects = dbGetSubjects($pdo);
 $grades = dbGetGrades($pdo);
 
 if ($action === 'dashboard' && $method === 'GET') {
-    respond(['ok' => true, 'data' => buildDashboard($students, $subjects, $grades)]);
+    $dashboard = buildDashboard($students, $subjects, $grades);
+
+    if ((string)($authUser['role'] ?? '') === 'alumno') {
+        $studentId = (int)($authUser['student_id'] ?? 0);
+
+        $dashboard['students'] = array_values(array_filter(
+            $dashboard['students'],
+            static fn(array $student): bool => (int)($student['id'] ?? 0) === $studentId
+        ));
+        $dashboard['grades'] = array_values(array_filter(
+            $dashboard['grades'],
+            static fn(array $grade): bool => (int)($grade['student_id'] ?? 0) === $studentId
+        ));
+        $dashboard['reports'] = array_values(array_filter(
+            $dashboard['reports'],
+            static fn(array $report): bool => (int)($report['student']['id'] ?? 0) === $studentId
+        ));
+    }
+
+    respond(['ok' => true, 'data' => $dashboard]);
 }
 
 if ($action === 'add_student' && $method === 'POST') {
+    requireApiProfessor();
+
     $payload = inputJson();
     $name = normalizeText($payload['name'] ?? '');
     $firstName = normalizeText($payload['first_name'] ?? '');
@@ -82,6 +129,8 @@ if ($action === 'add_student' && $method === 'POST') {
 }
 
 if ($action === 'add_subject' && $method === 'POST') {
+    requireApiProfessor();
+
     $payload = inputJson();
     $name = normalizeText($payload['name'] ?? '');
     $year = normalizeText($payload['year'] ?? '');
@@ -96,6 +145,8 @@ if ($action === 'add_subject' && $method === 'POST') {
 }
 
 if ($action === 'add_grade' && $method === 'POST') {
+    requireApiProfessor();
+
     $payload = inputJson();
 
     $studentId = (int)($payload['student_id'] ?? 0);
@@ -138,12 +189,16 @@ if ($action === 'add_grade' && $method === 'POST') {
 }
 
 if ($action === 'reset_demo' && $method === 'POST') {
+    requireApiProfessor();
+
     dbResetDemo($pdo);
 
     respond(['ok' => true]);
 }
 
 if ($action === 'sync_legacy' && $method === 'POST') {
+    requireApiProfessor();
+
     $result = dbSyncLegacyData($pdo);
 
     respond(['ok' => true, 'data' => $result]);

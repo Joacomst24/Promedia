@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/includes/auth.php';
+authRequireLogin(['profesor']);
+
 $pageTitle = 'Promedia - Estudiantes';
 $currentPage = 'students';
 require __DIR__ . '/includes/header.php';
@@ -56,6 +59,10 @@ require __DIR__ . '/includes/header.php';
         <label>
             Telefono
             <input type="text" name="phone" placeholder="Ej: 2257-123456">
+        </label>
+        <label>
+            Clave de acceso (alumno)
+            <input type="password" name="student_password" placeholder="Si no se completa, se asigna 1234">
         </label>
 
         <button type="submit" class="form-span-full">Guardar estudiante</button>

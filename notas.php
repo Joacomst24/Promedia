@@ -1,4 +1,7 @@
 <?php
+require_once __DIR__ . '/includes/auth.php';
+authRequireLogin(['profesor']);
+
 $pageTitle = 'Promedia - Notas';
 $currentPage = 'grades';
 require __DIR__ . '/includes/header.php';

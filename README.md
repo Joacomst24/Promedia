@@ -5,6 +5,12 @@ La persistencia se realiza en MySQL (base `escuela`) mediante tablas propias de 
 
 ## Funcionalidades incluidas
 
+- Login por DNI y clave con rol definido en base de datos
+- Rol configurable por cuenta (`profesor` o `alumno`) desde MySQL/phpMyAdmin en `promedia_teachers.role`
+- Registro con email y aprobación previa por superior antes del primer acceso
+- Sitio adicional para superior (`superior_login.php`) para aprobar/rechazar cuentas y asignar rol
+- Acceso de alumno por DNI (solo puede ver sus propias notas)
+- Registro de profesores con DNI, nombre, apellido y contraseña
 - Registrar estudiantes
 - Registrar materias
 - Cargar calificaciones
@@ -48,6 +54,35 @@ Abrir en navegador:
 http://localhost:8000/index.php
 ```
 
+## Acceso al sistema
+
+- Ruta de ingreso: `login.php`
+- Ruta de superior: `superior_login.php`
+- Ingreso único: DNI + clave (sin selector de perfil).
+- La app toma el rol de la cuenta desde la base de datos.
+- Si existe cuenta en `promedia_teachers`, se usa su campo `role` (`profesor` o `alumno`).
+- Si no existe cuenta docente, el acceso se valida como alumno por DNI en `promedia_students`.
+- Cuentas registradas desde `registro.php` quedan en estado pendiente hasta revisión del superior.
+- Al aprobar una cuenta, se intenta enviar un email de aviso de habilitación.
+
+## Superior inicial por defecto
+
+Si no existe ningún superior cargado, la app crea uno automáticamente al iniciar:
+
+- DNI: `10000000`
+- Clave: `admin1234`
+
+Podés cambiar estos valores por variables de entorno:
+
+- `SUPERIOR_DNI`
+- `SUPERIOR_NAME`
+- `SUPERIOR_EMAIL`
+- `SUPERIOR_PASS`
+- Alumno: ingresa con su DNI + clave.
+  - Para alumnos nuevos cargados desde la app: la clave se define al crear el estudiante (si no se completa, queda `1234`).
+  - Para alumnos heredados de la tabla `alumnos`: se usa la clave legacy (`alumnos.clave`) y se migra a hash local en el primer acceso exitoso.
+- El rol final se define por aprobación del superior (`1` profesor, `0` alumno).
+
 La portada ahora funciona como presentacion del sistema y acceso a las secciones principales:
 
 - `index.php`: inicio y explicacion de como se aprueba
@@ -81,6 +116,15 @@ Podés configurar la conexión por variables de entorno:
 - `DB_NAME` (default: `escuela`)
 - `DB_USER` (default: `root`)
 - `DB_PASS` (default: vacío)
+- `APP_MAIL_FROM` (default: `no-reply@promedia.local`)
+- `APP_MAIL_FROM_NAME` (default: `Promedia`)
+- `SMTP_HOST` (ej: `sandbox.smtp.mailtrap.io` o `smtp.gmail.com`)
+- `SMTP_PORT` (ej: `2525`, `587`)
+- `SMTP_ENCRYPTION` (`tls`, `ssl`, `none`)
+- `SMTP_USER` (usuario SMTP)
+- `SMTP_PASS` (clave SMTP)
+- `SMTP_HELO` (opcional, default: `localhost`)
+- `SMTP_TIMEOUT` (opcional, segundos, default: `15`)
 
 ## Sincronización manual de datos legacy
 

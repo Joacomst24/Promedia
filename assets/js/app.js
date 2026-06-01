@@ -1,4 +1,6 @@
 const apiUrl = 'api.php';
+const appRole = document.body?.dataset?.role || '';
+const loggedStudentId = Number(document.body?.dataset?.studentId || 0);
 
 const state = {
     students: [],
@@ -7,6 +9,8 @@ const state = {
     rules: null,
     studentLookup: new Map(),
     subjectLookup: new Map(),
+    fullStudentLookup: new Map(),
+    fullSubjectLookup: new Map(),
 };
 
 const studentForm = document.getElementById('studentForm');
@@ -83,17 +87,26 @@ function syncHiddenIds() {
         return;
     }
 
-    const selectedStudentId = state.studentLookup.get(gradeStudentInput.value.trim());
-    gradeStudentId.value = selectedStudentId ? String(selectedStudentId) : '';
+    const studentVal = gradeStudentInput.value.trim().normalize('NFC');
+    const foundStudent = state.students.find((s) => studentOptionLabel(s).normalize('NFC') === studentVal);
+    gradeStudentId.value = foundStudent ? String(foundStudent.id) : '';
 
-    const selectedSubjectId = state.subjectLookup.get(gradeSubjectInput.value.trim());
-    gradeSubjectId.value = selectedSubjectId ? String(selectedSubjectId) : '';
+    const subjectVal = gradeSubjectInput.value.trim().normalize('NFC');
+    const foundSubject = state.subjects.find((s) => subjectOptionLabel(s).normalize('NFC') === subjectVal);
+    gradeSubjectId.value = foundSubject ? String(foundSubject.id) : '';
 }
 
 function renderSelects() {
     if (!gradeStudentInput || !gradeSubjectInput || !studentsList || !subjectsList) {
         return;
     }
+
+    // Rebuild full lookup maps (all records, no filter) so syncHiddenIds always resolves.
+    state.fullStudentLookup = new Map();
+    state.students.forEach((s) => state.fullStudentLookup.set(studentOptionLabel(s), s.id));
+
+    state.fullSubjectLookup = new Map();
+    state.subjects.forEach((s) => state.fullSubjectLookup.set(subjectOptionLabel(s), s.id));
 
     state.studentLookup = new Map();
     const studentFilter = (gradeStudentInput.value || '').trim().toLowerCase();
@@ -159,12 +172,55 @@ function renderRules() {
 }
 
 function renderReports() {
-    if (!reportsContainer || !analysisStudentSearch) {
+    if (!reportsContainer) {
         return;
     }
 
     if (!state.reports.length) {
         reportsContainer.innerHTML = '<p>No hay análisis disponibles. Cargá estudiantes, materias y notas.</p>';
+        return;
+    }
+
+    if (appRole === 'alumno') {
+        const ownReports = state.reports.filter((report) => (loggedStudentId > 0 ? report.student.id === loggedStudentId : true));
+
+        if (!ownReports.length) {
+            reportsContainer.innerHTML = '<p>No hay notas cargadas para tu usuario.</p>';
+            return;
+        }
+
+        reportsContainer.innerHTML = ownReports
+            .map((report) => {
+                const subjects = report.subjects.length
+                    ? report.subjects
+                        .map((item) => `
+                            <div class="subject-line">
+                                <span>${item.subject_name}</span>
+                                <strong>${item.average.toFixed(2)} | Asistencia ${item.attendance.toFixed(2)}% (${item.approved ? 'Aprobada' : 'Intensificar'})</strong>
+                            </div>
+                        `)
+                        .join('')
+                    : '<p>Sin notas cargadas para este estudiante.</p>';
+
+                return `
+                    <article class="report-card">
+                        ${statusBadge(report.status)}
+                        <h3>${report.student.name}</h3>
+                        <p><strong>Curso:</strong> ${report.student.course}</p>
+                        <p><strong>Promedio general:</strong> ${report.overall_average.toFixed(2)}</p>
+                        <p><strong>Aprobadas:</strong> ${report.approved_subjects} | <strong>Desaprobadas:</strong> ${report.failed_subjects}</p>
+                        <p><strong>Situación:</strong> ${report.status}</p>
+                        <div>${subjects}</div>
+                    </article>
+                `;
+            })
+            .join('');
+
+        return;
+    }
+
+    if (!analysisStudentSearch) {
+        reportsContainer.innerHTML = '<p>No se encontró el buscador de estudiantes.</p>';
         return;
     }
 
@@ -241,6 +297,7 @@ if (studentForm) {
             address: formData.get('address'),
             email: formData.get('email'),
             phone: formData.get('phone'),
+            student_password: formData.get('student_password'),
         };
 
         try {
@@ -290,14 +347,17 @@ if (gradeForm) {
     gradeForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
-        const formData = new FormData(gradeForm);
-        const studentId = Number(formData.get('student_id'));
-        const subjectId = Number(formData.get('subject_id'));
+        syncHiddenIds();
+
+        const studentId = gradeStudentId ? Number(gradeStudentId.value) : 0;
+        const subjectId = gradeSubjectId ? Number(gradeSubjectId.value) : 0;
 
         if (!studentId || !subjectId) {
             showToast('Selecciona estudiante y materia desde la lista');
             return;
         }
+
+        const formData = new FormData(gradeForm);
 
         const payload = {
             student_id: studentId,
@@ -353,11 +413,17 @@ if (gradeStudentInput) {
     gradeStudentInput.addEventListener('input', () => {
         renderSelects();
     });
+    gradeStudentInput.addEventListener('change', () => {
+        syncHiddenIds();
+    });
 }
 
 if (gradeSubjectInput) {
     gradeSubjectInput.addEventListener('input', () => {
         renderSelects();
+    });
+    gradeSubjectInput.addEventListener('change', () => {
+        syncHiddenIds();
     });
 }
 

@@ -130,6 +130,29 @@ html {
     color: #ffffff;
 }
 
+.session-chip {
+    display: grid;
+    gap: 0.2rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid #d5ddd2;
+    background: #f8fbf8;
+    font-size: 0.8rem;
+    color: var(--muted);
+}
+
+.session-chip strong {
+    color: var(--ink);
+    font-size: 0.84rem;
+}
+
+.session-chip a,
+.session-chip a:visited {
+    color: var(--brand);
+    text-decoration: none;
+    font-weight: 700;
+}
+
 .hero {
     background: linear-gradient(135deg, #f7faf6, #eef5f2);
     color: var(--ink);
@@ -363,6 +386,44 @@ h3 {
     max-width: 460px;
 }
 
+.login-container {
+    max-width: 640px;
+}
+
+.login-panel {
+    max-width: 520px;
+}
+
+.login-error {
+    margin: 0 0 0.7rem;
+    border: 1px solid #e7b4b4;
+    background: #fff1f1;
+    color: #982d2d;
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+}
+
+.login-success {
+    margin: 0 0 0.7rem;
+    border: 1px solid #a8d5b5;
+    background: #edfaf2;
+    color: #2c7a48;
+    border-radius: 10px;
+    padding: 0.6rem 0.7rem;
+}
+
+.login-footer-link {
+    margin: 0.7rem 0 0;
+    font-size: 0.9rem;
+    color: var(--muted);
+}
+
+.login-footer-link a {
+    color: var(--brand);
+    font-weight: 600;
+    text-decoration: none;
+}
+
 .workflow-panel {
     padding: 1.05rem;
 }
@@ -547,6 +608,10 @@ td {
 
     .quick-nav {
         justify-content: flex-start;
+    }
+
+    .session-chip {
+        width: 100%;
     }
 
     .container {
