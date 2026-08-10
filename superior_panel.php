@@ -114,157 +114,7 @@ function roleLabel(int $role): string
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Promedia - Panel Superior</title>
     <link rel="stylesheet" href="assets/css/styles.css">
-    <style>
-        body {
-            background: linear-gradient(130deg, #f6f1ff 0%, #f1ecff 48%, #ede7ff 100%);
-        }
-
-        .hero-section .section-tag {
-            background: rgba(91, 33, 182, 0.14);
-            color: #5b21b6;
-        }
-
-        .hero-section h1 {
-            color: #4c1d95;
-        }
-
-        .hero-section .subtitle {
-            color: #6d28d9;
-        }
-
-        .page-panel {
-            border-color: rgba(124, 58, 237, 0.2);
-            box-shadow: 0 18px 34px rgba(76, 29, 149, 0.1);
-        }
-
-        .superior-toolbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 1rem;
-            margin-bottom: 1rem;
-        }
-
-        .superior-toolbar .button-link {
-            background: #6d28d9;
-            color: #ffffff;
-        }
-
-        .superior-toolbar .button-link.button-link--ghost {
-            background: transparent;
-            color: #6d28d9;
-            border: 1px solid rgba(109, 40, 217, 0.45);
-        }
-
-        .superior-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-
-        .superior-table th,
-        .superior-table td {
-            border-bottom: 1px solid rgba(109, 40, 217, 0.16);
-            padding: 0.65rem;
-            text-align: left;
-            vertical-align: top;
-            font-size: 0.92rem;
-        }
-
-        .superior-table th {
-            color: #5b21b6;
-        }
-
-        .status-pill {
-            display: inline-block;
-            padding: 0.2rem 0.6rem;
-            border-radius: 999px;
-            font-weight: 600;
-            font-size: 0.8rem;
-            background: rgba(124, 58, 237, 0.12);
-            color: #6d28d9;
-        }
-
-        .status-pill--approved { background: rgba(76, 29, 149, 0.18); color: #4c1d95; }
-        .status-pill--rejected { background: rgba(190, 24, 93, 0.14); color: #9d174d; }
-        .status-pill--pending { background: rgba(109, 40, 217, 0.16); color: #6d28d9; }
-
-        .decision-form {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .decision-form select,
-        .decision-form button {
-            font-size: 0.82rem;
-        }
-
-        .decision-form button {
-            padding: 0.4rem 0.6rem;
-        }
-
-        .approved-panel {
-            margin-top: 1.25rem;
-            padding-top: 1rem;
-            border-top: 1px dashed rgba(109, 40, 217, 0.35);
-        }
-
-        .tabs-nav {
-            display: flex;
-            gap: 1rem;
-            border-bottom: 1px solid rgba(109, 40, 217, 0.24);
-            margin: 1rem 0;
-            overflow-x: auto;
-        }
-
-        .tabs-nav a {
-            display: inline-block;
-            text-decoration: none;
-            color: #7e22ce;
-            padding: 0.5rem 0.15rem 0.65rem;
-            border-bottom: 3px solid transparent;
-            font-weight: 600;
-            white-space: nowrap;
-        }
-
-        .tabs-nav a.is-active {
-            color: #6d28d9;
-            border-bottom-color: #6d28d9;
-        }
-
-        .tab-panel {
-            margin-top: 0.35rem;
-        }
-
-        .approved-panel h2 {
-            margin: 0 0 0.35rem;
-            color: #5b21b6;
-            font-size: 1.1rem;
-        }
-
-        .approved-panel p {
-            margin: 0 0 0.8rem;
-            color: #6d28d9;
-            font-size: 0.92rem;
-        }
-
-        .approved-form {
-            display: flex;
-            gap: 0.6rem;
-            align-items: center;
-            flex-wrap: wrap;
-        }
-
-        .approved-form select,
-        .approved-form button {
-            font-size: 0.9rem;
-        }
-
-        .approved-form button {
-            padding: 0.45rem 0.7rem;
-        }
-    </style>
+    <link rel="stylesheet" href="assets/css/admin.css">
 </head>
 <body>
     <div class="bg-shape bg-shape-a"></div>
@@ -283,7 +133,11 @@ function roleLabel(int $role): string
                     <strong><?= htmlspecialchars($superiorName, ENT_QUOTES, 'UTF-8') ?></strong>
                     <p style="margin:0.25rem 0 0;">DNI <?= htmlspecialchars((string)($user['dni'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
-                <a class="button-link button-link--ghost" href="logout.php">Salir</a>
+                <div style="display:flex; gap:0.6rem; align-items:center; flex-wrap:wrap;">
+                    <a class="button-link" href="estudiantes.php">Cargar estudiantes</a>
+                    <a class="button-link" href="materias.php">Cargar materias</a>
+                    <a class="button-link button-link--ghost" href="logout.php">Salir</a>
+                </div>
             </div>
 
             <?php if ($error !== ''): ?>

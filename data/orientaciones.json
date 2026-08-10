@@ -1,0 +1,78 @@
+{
+    "orientaciones": {
+        "Programación": {
+            "materias": [
+                "EMPRENDIMIENTOS PRODUCTIVOS Y DESARROLLO LOCAL",
+                "EVALUACION DE PROYECTOS",
+                "ORGANIZACION Y METODOS",
+                "MODELOS Y SISTEMAS",
+                "BASE DE DATOS",
+                "DESARROLLO DE APLICACIONES WEB DINAMICAS",
+                "DESARROLLO DE APLICACIONES WEB ESTATICAS",
+                "LABORATORIO DE APLICACIONES",
+                "LABORATORIO DE DISEÑO DE DATOS",
+                "LABORATORIO DE HARDWARE",
+                "LABORATORIO DE PROGRAMACION",
+                "LABORATORIO DE PROGRAMACION III",
+                "LABORATORIO DE REDES INFORMATICAS",
+                "LABORATORIO DE SISTEMAS OPERATIVOS",
+                "LABORATORIO DE DISEÑO WEB",
+                "SEGURIDAD INFORMATICA",
+                "SISTEMAS DIGITALES",
+                "SISTEMA DIGITALES"
+            ],
+            "talleres": [
+                "PRACTICAS PROFESIONALIZANTES DEL SECTOR INFORMATICO",
+                "PROYECTO DE DESARROLLO SOFTWARE PARA PLATAFORMAS MOVILES",
+                "PROYECTO, DISEÑO E IMPLEMENTACION DE SISTEMAS COMPUTACIONALES",
+                "PROYECTO DE IMPLEMENTACION DE SITIOS WEB DINAMICOS"
+            ]
+        },
+        "Turismo": {
+            "materias": [
+                "INTRODUCCION AL TURISMO Y OFERTA TURISTICA",
+                "COMERCIALIZACION DE EMPRESAS TURISTICAS Y HOTELERA",
+                "DIRECCION DE EMPRESAS TURISTICAS Y HOTELERAS",
+                "EMPRESAS HOTELERAS",
+                "ESPACIOS TURISTICOS DE LA ARGENTINA",
+                "PROGRAMACION DE CIRCUITOS TURISTICOS",
+                "INVESTIGACION DE MERCADOS",
+                "SERVICIOS TURISTICOS",
+                "TECNOLOGIA DE LA INFORMACION TURISTICA",
+                "PATRIMONIO TURISTICO NACIONAL E INTERNACIONAL",
+                "RELACIONES PUBLICAS, PROTOCOLO Y CEREMONIAL",
+                "RECURSOS LINGUISTICOS",
+                "INTRODUCCION AL PORTUGUES",
+                "SISTEMA DE INFORMACION CONTABLE",
+                "SISTEMAS DE INFORMACION CONTABLE"
+            ],
+            "talleres": [
+                "PRACTICAS PROFESIONALIZANTES DEL SECTOR SERVICIOS"
+            ]
+        },
+        "Maestro Mayor de Obra": {
+            "materias": [
+                "SISTEMAS CONSTRUCTIVOS",
+                "ESTRUCTURAS",
+                "CONOCIMIENTO DE LOS MATERIALES",
+                "MATERIALES DE OBRA",
+                "RESISTENCIA Y ENSAYOS DE MATERIALES",
+                "DIBUJO TECNOLOGICO",
+                "DOCUMENTACION TECNICA",
+                "INTERPRETACION DE ANTEPROYECTOS",
+                "PLANIFICACION DE OBRA",
+                "DIRECCION DE OBRA",
+                "DIRECCION DE LA EJECUCION DE INSTALACIONES",
+                "PROYECTO DE INSTALACIONES",
+                "INSTALACIONES ELECTRICAS",
+                "INSTALACIONES SANITARIAS Y DE GAS",
+                "INSTALACIONES DE ACONDICIONAMIENTO DE AIRE",
+                "EJERCICIO PROFESIONAL DE LA CONSTRUCCION",
+                "TECNOLOGIAS ELECTRONICAS"
+            ],
+            "talleres": [
+                "PRACTICAS PROFESIONALIZANTES DEL SECTOR CONSTRUCTIVO"
+            ]
+        }
+    }
+}

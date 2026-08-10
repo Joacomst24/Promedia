@@ -43,10 +43,6 @@ function requireApiLogin(): array
         respond(['ok' => false, 'error' => 'Sesión requerida.'], 401);
     }
 
-    if ((string)($user['role'] ?? '') === 'superior') {
-        respond(['ok' => false, 'error' => 'El rol superior no usa esta API.'], 403);
-    }
-
     return $user;
 }
 
@@ -54,6 +50,13 @@ function requireApiProfessor(): void
 {
     if (!authHasRole('profesor')) {
         respond(['ok' => false, 'error' => 'Acceso solo para profesores.'], 403);
+    }
+}
+
+function requireApiSuperior(): void
+{
+    if (!authHasRole('superior')) {
+        respond(['ok' => false, 'error' => 'Acceso solo para el panel superior.'], 403);
     }
 }
 
@@ -99,7 +102,7 @@ if ($action === 'dashboard' && $method === 'GET') {
 }
 
 if ($action === 'add_student' && $method === 'POST') {
-    requireApiProfessor();
+    requireApiSuperior();
 
     $payload = inputJson();
     $name = normalizeText($payload['name'] ?? '');
@@ -129,7 +132,7 @@ if ($action === 'add_student' && $method === 'POST') {
 }
 
 if ($action === 'add_subject' && $method === 'POST') {
-    requireApiProfessor();
+    requireApiSuperior();
 
     $payload = inputJson();
     $name = normalizeText($payload['name'] ?? '');
