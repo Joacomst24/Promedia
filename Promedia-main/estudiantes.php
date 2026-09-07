@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/auth.php';
-authRequireLogin(['profesor']);
+authRequireLogin(['superior']);
 
 $pageTitle = 'Promedia - Estudiantes';
 $currentPage = 'students';

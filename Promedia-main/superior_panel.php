@@ -504,7 +504,11 @@ function roleLabel(int $role): string
                     <strong><?= htmlspecialchars($superiorName, ENT_QUOTES, 'UTF-8') ?></strong>
                     <p style="margin:0.25rem 0 0;">DNI <?= htmlspecialchars((string)($user['dni'] ?? ''), ENT_QUOTES, 'UTF-8') ?></p>
                 </div>
-                <a class="button-link button-link--ghost" href="logout.php">Salir</a>
+                <div class="hero-actions">
+                    <a class="button-link button-link--ghost" href="estudiantes.php">Cargar estudiantes</a>
+                    <a class="button-link button-link--ghost" href="materias.php">Cargar materias</a>
+                    <a class="button-link button-link--ghost" href="logout.php">Salir</a>
+                </div>
             </div>
 
             <?php if ($error !== ''): ?>

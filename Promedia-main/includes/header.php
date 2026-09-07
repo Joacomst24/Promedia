@@ -21,6 +21,12 @@ if ($role === 'alumno') {
         'home' => ['label' => 'Inicio', 'href' => 'index.php'],
         'analysis' => ['label' => 'Mis notas', 'href' => 'analisis.php'],
     ];
+} elseif ($role === 'profesor') {
+    unset($navigation['students'], $navigation['subjects']);
+}
+
+if ($role === 'superior' && in_array($currentPage, ['students', 'subjects'], true)) {
+    unset($navigation['grades'], $navigation['analysis']);
 }
 ?>
 <!doctype html>
@@ -31,7 +37,7 @@ if ($role === 'alumno') {
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="stylesheet" href="assets/css/styles.css">
 </head>
-<body data-role="<?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8') ?>" data-student-id="<?= htmlspecialchars((string)($user['student_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
+<body class="<?= $role === 'superior' ? 'admin-page' : '' ?>" data-role="<?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8') ?>" data-student-id="<?= htmlspecialchars((string)($user['student_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <div class="bg-shape bg-shape-a"></div>
     <div class="bg-shape bg-shape-b"></div>
 
@@ -67,7 +73,7 @@ if ($role === 'alumno') {
                             <?php endif; ?>
                         <?php endif; ?>
                     </strong>
-                    <a href="logout.php">Salir</a>
+                    <a class="session-chip__logout" href="logout.php">Cerrar sesión</a>
                 </div>
             <?php endif; ?>
         </div>
