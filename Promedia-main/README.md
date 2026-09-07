@@ -6,11 +6,12 @@ La persistencia se realiza en MySQL (base `escuela`) mediante tablas propias de 
 ## Funcionalidades incluidas
 
 - Login por DNI y clave con rol definido en base de datos
-- Rol configurable por cuenta (`profesor` o `alumno`) desde MySQL/phpMyAdmin en `promedia_teachers.role`
+- Rol configurable por cuenta (`profesor`, `alumno` o `administrador`) desde el panel del administrador
 - Registro con email y aprobación previa por superior antes del primer acceso
 - Sitio adicional para superior (`superior_login.php`) para aprobar/rechazar cuentas y asignar rol
 - Acceso de alumno por DNI (solo puede ver sus propias notas)
 - Registro de profesores con DNI, nombre, apellido y contraseña
+- El administrador puede definir curso, promedio general, materias aprobadas, desaprobadas y situación académica de cada alumno
 - Registrar estudiantes
 - Registrar materias
 - Cargar calificaciones
@@ -60,7 +61,7 @@ http://localhost:8000/index.php
 - Ruta de superior: `superior_login.php`
 - Ingreso único: DNI + clave (sin selector de perfil).
 - La app toma el rol de la cuenta desde la base de datos.
-- Si existe cuenta en `promedia_teachers`, se usa su campo `role` (`profesor` o `alumno`).
+- Si existe cuenta en `promedia_teachers`, se usa su campo `role` (`profesor`, `alumno` o `administrador`).
 - Si no existe cuenta docente, el acceso se valida como alumno por DNI en `promedia_students`.
 - Cuentas registradas desde `registro.php` quedan en estado pendiente hasta revisión del superior.
 - Al aprobar una cuenta, se intenta enviar un email de aviso de habilitación.
@@ -81,7 +82,7 @@ Podés cambiar estos valores por variables de entorno:
 - Alumno: ingresa con su DNI + clave.
   - Para alumnos nuevos cargados desde la app: la clave se define al crear el estudiante (si no se completa, queda `1234`).
   - Para alumnos heredados de la tabla `alumnos`: se usa la clave legacy (`alumnos.clave`) y se migra a hash local en el primer acceso exitoso.
-- El rol final se define por aprobación del superior (`1` profesor, `0` alumno).
+- El rol final se define por aprobación del administrador (`1` profesor, `0` alumno, `2` administrador).
 
 La portada ahora funciona como presentacion del sistema y acceso a las secciones principales:
 

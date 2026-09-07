@@ -8,22 +8,18 @@ $user = authUser();
 $role = (string)($user['role'] ?? '');
 $roleLabel = $role === 'profesor' ? 'Profesor' : ($role === 'superior' ? 'Superior' : 'Alumno');
 
+$navigation = [
+    'home' => ['label' => 'Inicio', 'href' => 'index.php'],
+    'students' => ['label' => 'Estudiantes', 'href' => 'estudiantes.php'],
+    'subjects' => ['label' => 'Materias', 'href' => 'materias.php'],
+    'grades' => ['label' => 'Notas', 'href' => 'notas.php'],
+    'analysis' => ['label' => 'Analisis', 'href' => 'analisis.php'],
+];
+
 if ($role === 'alumno') {
     $navigation = [
         'home' => ['label' => 'Inicio', 'href' => 'index.php'],
         'analysis' => ['label' => 'Mis notas', 'href' => 'analisis.php'],
-    ];
-} elseif ($role === 'superior') {
-    $navigation = [
-        'panel' => ['label' => 'Panel', 'href' => 'superior_panel.php'],
-        'students' => ['label' => 'Estudiantes', 'href' => 'estudiantes.php'],
-        'subjects' => ['label' => 'Materias', 'href' => 'materias.php'],
-    ];
-} else {
-    $navigation = [
-        'home' => ['label' => 'Inicio', 'href' => 'index.php'],
-        'grades' => ['label' => 'Notas', 'href' => 'notas.php'],
-        'analysis' => ['label' => 'Analisis', 'href' => 'analisis.php'],
     ];
 }
 ?>
@@ -34,9 +30,6 @@ if ($role === 'alumno') {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= htmlspecialchars($pageTitle, ENT_QUOTES, 'UTF-8') ?></title>
     <link rel="stylesheet" href="assets/css/styles.css">
-    <?php if ($role === 'superior'): ?>
-        <link rel="stylesheet" href="assets/css/admin.css">
-    <?php endif; ?>
 </head>
 <body data-role="<?= htmlspecialchars($role, ENT_QUOTES, 'UTF-8') ?>" data-student-id="<?= htmlspecialchars((string)($user['student_id'] ?? ''), ENT_QUOTES, 'UTF-8') ?>">
     <div class="bg-shape bg-shape-a"></div>

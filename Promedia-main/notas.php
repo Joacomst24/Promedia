@@ -19,29 +19,6 @@ require __DIR__ . '/includes/header.php';
             Estudiante
             <input type="search" id="gradeStudentInput" placeholder="Escribi nombre, curso o DNI" list="studentsList" required>
         </label>
-        <fieldset class="subject-filters form-span-full">
-            <legend>Filtrar materias / talleres</legend>
-            <label>
-                Orientación
-                <select id="subjectOrientationFilter">
-                    <option value="">Todas</option>
-                </select>
-            </label>
-            <label>
-                Tipo
-                <select id="subjectTypeFilter">
-                    <option value="">Todos</option>
-                    <option value="Materia">Materia</option>
-                    <option value="Taller">Taller</option>
-                </select>
-            </label>
-            <label>
-                Año
-                <select id="subjectYearFilter">
-                    <option value="">Todos</option>
-                </select>
-            </label>
-        </fieldset>
         <label>
             Materia
             <input type="search" id="gradeSubjectInput" placeholder="Escribi materia, año o abreviatura" list="subjectsList" required>

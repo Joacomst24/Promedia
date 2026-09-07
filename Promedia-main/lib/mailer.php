@@ -162,7 +162,11 @@ function sendAccountApprovalEmail(string $toEmail, string $fullName, int $role):
         return false;
     }
 
-    $roleLabel = $role === 1 ? 'Profesor' : 'Alumno';
+    $roleLabel = match ($role) {
+        1 => 'Profesor',
+        2 => 'Administrador',
+        default => 'Alumno',
+    };
     $safeName = trim($fullName) !== '' ? trim($fullName) : 'Usuario';
     $subject = 'Promedia - Cuenta habilitada';
 

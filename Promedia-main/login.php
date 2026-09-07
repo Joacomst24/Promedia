@@ -70,7 +70,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                     }
 
                     if ($error === '') {
-                        $teacherRole = isset($teacher['role']) ? (int)$teacher['role'] : 0;
+                        $teacherRole = isset($teacher['role']) ? (int)$teacher['role'] : -1;
 
                         if ($teacherRole === 1) {
                             authLoginProfessor($teacher);
@@ -78,17 +78,23 @@ if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
                             exit;
                         }
 
+                        if ($teacherRole === 2) {
+                            authLoginAdministrator($teacher);
+                            header('Location: superior_panel.php');
+                            exit;
+                        }
+
                         if ($teacherRole === 0) {
                             $studentByRole = dbFindStudentByDni($pdo, $dniValue);
                             if ($studentByRole === null) {
-                                $error = 'La cuenta tiene rol alumno, pero no existe un alumno con ese DNI.';
+                                $error = 'La cuenta tiene rol alumno, pero no existe un alumno con ese DNI. Contactá al administrador.';
                             } else {
                                 authLoginStudent($studentByRole);
                                 header('Location: analisis.php');
                                 exit;
                             }
                         } else {
-                            $error = 'Rol no válido. Usá 1 para profesor o 0 para alumno en phpMyAdmin.';
+                            $error = 'La cuenta aún no tiene un rol asignado por el administrador.';
                         }
                     }
                 }

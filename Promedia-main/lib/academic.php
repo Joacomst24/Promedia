@@ -89,6 +89,19 @@ function buildStudentReport(array $student, array $subjects, array $grades): arr
         }
     }
 
+    if (isset($student['general_average']) && $student['general_average'] !== null && $student['general_average'] !== '') {
+        $overallAverage = (float)$student['general_average'];
+    }
+    if (isset($student['approved_subjects']) && $student['approved_subjects'] !== null && $student['approved_subjects'] !== '') {
+        $approvedSubjects = (int)$student['approved_subjects'];
+    }
+    if (isset($student['failed_subjects']) && $student['failed_subjects'] !== null && $student['failed_subjects'] !== '') {
+        $failedSubjects = (int)$student['failed_subjects'];
+    }
+    if (isset($student['academic_status']) && trim((string)$student['academic_status']) !== '') {
+        $academicStatus = trim((string)$student['academic_status']);
+    }
+
     return [
         'student' => $student,
         'subjects' => $subjectsReport,

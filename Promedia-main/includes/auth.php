@@ -79,6 +79,20 @@ function authLoginSuperior(array $superior): void
     ];
 }
 
+function authLoginAdministrator(array $account): void
+{
+    appSessionStart();
+
+    $fullName = trim((string)($account['last_name'] ?? '') . ' ' . (string)($account['first_name'] ?? ''));
+
+    $_SESSION['auth_user'] = [
+        'role' => 'superior',
+        'superior_id' => (int)($account['id'] ?? 0),
+        'superior_name' => $fullName !== '' ? $fullName : 'Administrador',
+        'dni' => (string)($account['dni'] ?? ''),
+    ];
+}
+
 function authLogout(): void
 {
     appSessionStart();

@@ -30,8 +30,8 @@ require __DIR__ . '/includes/header.php';
         <?php if ($isStudent): ?>
             <a class="button-link" href="analisis.php">Ver mis notas</a>
         <?php else: ?>
-            <a class="button-link" href="notas.php">Cargar notas</a>
-            <a class="button-link button-link--ghost" href="analisis.php">Ver analisis</a>
+            <a class="button-link" href="estudiantes.php">Registrar estudiantes</a>
+            <a class="button-link button-link--ghost" href="notas.php">Cargar notas</a>
         <?php endif; ?>
     </div>
 </section>
@@ -39,17 +39,27 @@ require __DIR__ . '/includes/header.php';
 <?php if (!$isStudent): ?>
     <section class="page-grid">
         <article class="panel info-card">
-            <p class="section-tag">Notas</p>
-            <h2>Cargar calificaciones</h2>
-            <p>Busca estudiante y materia, sube la nota y deja registrada la calificacion del periodo.</p>
-            <a class="text-link" href="notas.php">Ir a notas</a>
+            <p class="section-tag">Paso 1</p>
+            <h2>Estudiantes</h2>
+            <p>Carga los datos principales del alumno y agrega informacion opcional solo cuando la necesites.</p>
+            <a class="text-link" href="estudiantes.php">Ir a estudiantes</a>
         </article>
 
         <article class="panel info-card">
-            <p class="section-tag">Analisis</p>
-            <h2>Rendimiento academico</h2>
-            <p>Revisa promedios, estado y evolucion de cada estudiante en una pantalla dedicada.</p>
-            <a class="text-link" href="analisis.php">Ver analisis</a>
+            <p class="section-tag">Paso 2</p>
+            <h2>Materias</h2>
+            <p>Registra cada materia por año para dejar lista la estructura sobre la que luego cargas calificaciones.</p>
+            <a class="text-link" href="materias.php">Ir a materias</a>
+        </article>
+
+        <article class="panel info-card">
+            <p class="section-tag">Paso 3</p>
+            <h2>Notas y analisis</h2>
+            <p>Busca estudiante y materia, sube la nota y revisa el rendimiento academico en una pantalla dedicada.</p>
+            <div class="info-card__links">
+                <a class="text-link" href="notas.php">Cargar notas</a>
+                <a class="text-link" href="analisis.php">Ver analisis</a>
+            </div>
         </article>
     </section>
 <?php endif; ?>

@@ -29,6 +29,8 @@ function escuelaDbConnection(): PDO
     ]);
 
     ensurePromediaSchema($pdo);
+    dbSyncLegacyData($pdo);
+    dbRepairApprovedStudentAccounts($pdo);
 
     return $pdo;
 }
@@ -148,6 +150,22 @@ function ensurePromediaSchema(PDO $pdo): void
 
     if (!dbColumnExists($pdo, 'promedia_students', 'student_password_hash')) {
         $pdo->exec('ALTER TABLE promedia_students ADD COLUMN student_password_hash VARCHAR(255) NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_students', 'general_average')) {
+        $pdo->exec('ALTER TABLE promedia_students ADD COLUMN general_average DECIMAL(4,2) NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_students', 'approved_subjects')) {
+        $pdo->exec('ALTER TABLE promedia_students ADD COLUMN approved_subjects INT NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_students', 'failed_subjects')) {
+        $pdo->exec('ALTER TABLE promedia_students ADD COLUMN failed_subjects INT NULL');
+    }
+
+    if (!dbColumnExists($pdo, 'promedia_students', 'academic_status')) {
+        $pdo->exec('ALTER TABLE promedia_students ADD COLUMN academic_status VARCHAR(120) NULL');
     }
 
     if (!dbColumnExists($pdo, 'promedia_subjects', 'legacy_subject_id')) {
@@ -433,7 +451,11 @@ function dbGetStudents(PDO $pdo): array
             sex,
             address,
             email,
-            phone
+            phone,
+            general_average,
+            approved_subjects,
+            failed_subjects,
+            academic_status
          FROM promedia_students
          ORDER BY name ASC'
     );
@@ -634,7 +656,11 @@ function dbFindStudentByDni(PDO $pdo, string $dni): ?array
             id,
             name,
             course,
-            legacy_dni AS dni
+            legacy_dni AS dni,
+            general_average,
+            approved_subjects,
+            failed_subjects,
+            academic_status
          FROM promedia_students
          WHERE legacy_dni = :dni
          LIMIT 1'
@@ -743,8 +769,14 @@ function dbGetTeacherAccounts(PDO $pdo): array
             t.first_name,
             t.last_name,
             t.created_at,
+                ps.course,
+                ps.general_average,
+                ps.approved_subjects,
+                ps.failed_subjects,
+                ps.academic_status,
             s.name AS approved_by_name
          FROM promedia_teachers t
+            LEFT JOIN promedia_students ps ON ps.legacy_dni = t.dni
          LEFT JOIN promedia_superiors s ON s.id = t.approved_by_superior_id
          ORDER BY
             CASE t.approval_status
@@ -768,7 +800,7 @@ function dbSetTeacherApproval(PDO $pdo, int $teacherId, string $status, int $rol
         return false;
     }
 
-    if (!in_array($role, [0, 1], true)) {
+    if (!in_array($role, [0, 1, 2], true)) {
         return false;
     }
 
@@ -790,13 +822,9 @@ function dbSetTeacherApproval(PDO $pdo, int $teacherId, string $status, int $rol
     return $stmt->rowCount() > 0;
 }
 
-function dbUpdateApprovedTeacherRole(PDO $pdo, int $teacherId, int $role, int $superiorId): bool
+function dbUpdateTeacherRole(PDO $pdo, int $teacherId, int $role, int $superiorId): bool
 {
-    if ($teacherId <= 0 || $superiorId <= 0) {
-        return false;
-    }
-
-    if (!in_array($role, [0, 1], true)) {
+    if ($teacherId <= 0 || $superiorId <= 0 || !in_array($role, [0, 1, 2], true)) {
         return false;
     }
 
@@ -813,6 +841,168 @@ function dbUpdateApprovedTeacherRole(PDO $pdo, int $teacherId, int $role, int $s
         ':id' => $teacherId,
     ]);
 
+    return dbFindTeacherById($pdo, $teacherId) !== null;
+}
+
+function dbEnsureStudentForTeacher(PDO $pdo, int $teacherId): bool
+{
+    $teacher = dbFindTeacherById($pdo, $teacherId);
+    if (!is_array($teacher) || (int)($teacher['dni'] ?? 0) <= 0) {
+        return false;
+    }
+
+    $dni = (int)$teacher['dni'];
+    $firstName = trim((string)($teacher['first_name'] ?? ''));
+    $lastName = trim((string)($teacher['last_name'] ?? ''));
+    $name = trim($lastName . ', ' . $firstName);
+
+    $find = $pdo->prepare('SELECT id FROM promedia_students WHERE legacy_dni = :dni LIMIT 1');
+    $find->execute([':dni' => $dni]);
+    $studentId = (int)$find->fetchColumn();
+
+    if ($studentId > 0) {
+        $update = $pdo->prepare(
+            'UPDATE promedia_students
+             SET name = :name,
+                 first_name = :first_name,
+                 last_name = :last_name,
+                 email = :email,
+                 student_password_hash = :password_hash
+             WHERE id = :id'
+        );
+        $update->execute([
+            ':name' => $name !== '' ? $name : 'Alumno',
+            ':first_name' => $firstName !== '' ? $firstName : null,
+            ':last_name' => $lastName !== '' ? $lastName : null,
+            ':email' => trim((string)($teacher['email'] ?? '')) ?: null,
+            ':password_hash' => (string)($teacher['password_hash'] ?? ''),
+            ':id' => $studentId,
+        ]);
+
+        return true;
+    }
+
+    $insert = $pdo->prepare(
+        'INSERT INTO promedia_students
+            (name, course, legacy_dni, first_name, last_name, email, student_password_hash)
+         VALUES (:name, :course, :dni, :first_name, :last_name, :email, :password_hash)'
+    );
+    $insert->execute([
+        ':name' => $name !== '' ? $name : 'Alumno',
+        ':course' => 'Sin curso',
+        ':dni' => $dni,
+        ':first_name' => $firstName !== '' ? $firstName : null,
+        ':last_name' => $lastName !== '' ? $lastName : null,
+        ':email' => trim((string)($teacher['email'] ?? '')) ?: null,
+        ':password_hash' => (string)($teacher['password_hash'] ?? ''),
+    ]);
+
+    return true;
+}
+
+function dbRepairApprovedStudentAccounts(PDO $pdo): void
+{
+    $stmt = $pdo->query(
+        "SELECT id
+         FROM promedia_teachers
+         WHERE approval_status = 'approved' AND role = 0"
+    );
+
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $teacherId) {
+        dbEnsureStudentForTeacher($pdo, (int)$teacherId);
+    }
+}
+
+function dbUpdateTeacherAccount(
+    PDO $pdo,
+    int $teacherId,
+    string $dni,
+    string $email,
+    string $firstName,
+    string $lastName,
+    string $password = ''
+): bool {
+    if ($teacherId <= 0 || $dni === '' || !ctype_digit($dni) || $firstName === '' || $lastName === '') {
+        return false;
+    }
+
+    $current = dbFindTeacherById($pdo, $teacherId);
+    if (!is_array($current)) {
+        return false;
+    }
+
+    $oldDni = (int)($current['dni'] ?? 0);
+
+    $fields = 'dni = :dni, email = :email, first_name = :first_name, last_name = :last_name';
+    $params = [
+        ':dni' => (int)$dni,
+        ':email' => $email !== '' ? $email : null,
+        ':first_name' => $firstName,
+        ':last_name' => $lastName,
+        ':id' => $teacherId,
+    ];
+
+    if ($password !== '') {
+        $fields .= ', password_hash = :password_hash';
+        $params[':password_hash'] = password_hash($password, PASSWORD_DEFAULT);
+    }
+
+    $stmt = $pdo->prepare("UPDATE promedia_teachers SET {$fields} WHERE id = :id");
+    $stmt->execute($params);
+
+    $student = $pdo->prepare(
+        'UPDATE promedia_students
+         SET legacy_dni = :dni, name = :name, first_name = :first_name, last_name = :last_name, email = :email
+         WHERE legacy_dni = :old_dni'
+    );
+    $student->execute([
+        ':dni' => (int)$dni,
+        ':name' => trim($lastName . ', ' . $firstName),
+        ':first_name' => $firstName,
+        ':last_name' => $lastName,
+        ':email' => $email !== '' ? $email : null,
+        ':old_dni' => $oldDni,
+    ]);
+
+    return $stmt->rowCount() > 0;
+}
+
+function dbUpdateStudentAcademicData(
+    PDO $pdo,
+    int $teacherId,
+    string $course,
+    float $generalAverage,
+    int $approvedSubjects,
+    int $failedSubjects,
+    string $academicStatus
+): bool {
+    if ($teacherId <= 0 || $course === '' || $generalAverage < 0 || $generalAverage > 10 || $approvedSubjects < 0 || $failedSubjects < 0 || $academicStatus === '') {
+        return false;
+    }
+
+    $teacher = dbFindTeacherById($pdo, $teacherId);
+    if (!is_array($teacher)) {
+        return false;
+    }
+
+    $stmt = $pdo->prepare(
+        'UPDATE promedia_students
+         SET course = :course,
+             general_average = :general_average,
+             approved_subjects = :approved_subjects,
+             failed_subjects = :failed_subjects,
+             academic_status = :academic_status
+         WHERE legacy_dni = :dni'
+    );
+    $stmt->execute([
+        ':course' => $course,
+        ':general_average' => $generalAverage,
+        ':approved_subjects' => $approvedSubjects,
+        ':failed_subjects' => $failedSubjects,
+        ':academic_status' => $academicStatus,
+        ':dni' => (int)($teacher['dni'] ?? 0),
+    ]);
+
     return $stmt->rowCount() > 0;
 }
 
@@ -823,7 +1013,7 @@ function dbFindTeacherById(PDO $pdo, int $teacherId): ?array
     }
 
     $stmt = $pdo->prepare(
-        'SELECT id, dni, role, email, approval_status, first_name, last_name
+        'SELECT id, dni, role, email, approval_status, first_name, last_name, password_hash
          FROM promedia_teachers
          WHERE id = :id
          LIMIT 1'
